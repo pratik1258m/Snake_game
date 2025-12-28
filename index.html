@@ -27,9 +27,7 @@
             color: var(--primary-color);
             font-family: 'Orbitron', sans-serif;
             overflow: hidden;
-            background-image:
-                linear-gradient(var(--grid-color) 1px, transparent 1px),
-                linear-gradient(90deg, var(--grid-color) 1px, transparent 1px);
+            background-image: linear-gradient(var(--grid-color) 1px, transparent 1px), linear-gradient(90deg, var(--grid-color) 1px, transparent 1px);
             background-size: 40px 40px;
         }
 
@@ -209,6 +207,12 @@
             left: 100%;
         }
 
+        .signature {
+            margin-top: 15px;
+            font-size: 0.8rem;
+            color: rgba(255, 255, 255, 0.5);
+        }
+
         @keyframes pulse {
             0% {
                 text-shadow: 0 0 20px rgba(0, 255, 255, 0.5);
@@ -238,7 +242,6 @@
 </head>
 
 <body>
-
     <div class="game-wrapper">
         <div class="game-container">
             <div class="header">
@@ -251,15 +254,12 @@
                     <span class="value" id="highScore">0</span>
                 </div>
             </div>
-
             <div style="position: relative;">
                 <canvas id="gameCanvas" width="400" height="400"></canvas>
-
                 <div id="startScreen" class="overlay">
                     <h1>NEON SNAKE</h1>
                     <button class="btn" onclick="startGame()">Start Game</button>
                 </div>
-
                 <div id="gameOverScreen" class="overlay hidden">
                     <h1 style="font-size: 2.5rem; color: #ff3333; text-shadow: 0 0 20px red;">GAME OVER</h1>
                     <div class="score-box" style="margin-bottom: 30px;">
@@ -269,7 +269,7 @@
                     <button class="btn" onclick="startGame()">Play Again</button>
                 </div>
             </div>
-
+            <div class="signature">Created by Pratik</div>
             <div class="mobile-controls">
                 <div class="d-pad">
                     <div class="ctrl-btn up" onclick="handleInput('ArrowUp')">▲</div>
@@ -280,7 +280,6 @@
             </div>
         </div>
     </div>
-
     <script>
         const canvas = document.getElementById('gameCanvas');
         const ctx = canvas.getContext('2d');
@@ -289,10 +288,8 @@
         const finalScoreElement = document.getElementById('finalScore');
         const startScreen = document.getElementById('startScreen');
         const gameOverScreen = document.getElementById('gameOverScreen');
-
         const GRID_SIZE = 20;
         const TILE_COUNT = canvas.width / GRID_SIZE;
-
         let snake = [];
         let food = {};
         let velocity = { x: 0, y: 0 };
@@ -301,10 +298,7 @@
         let gameLoop;
         let particles = [];
         let isGameRunning = false;
-
-        // Initialize High Score
         highScoreElement.innerText = highScore;
-
         class Particle {
             constructor(x, y, color) {
                 this.x = x;
@@ -315,14 +309,12 @@
                 this.speedY = Math.random() * 2 - 1;
                 this.life = 1.0;
             }
-
             update() {
                 this.x += this.speedX;
                 this.y += this.speedY;
                 this.life -= 0.05;
                 this.size *= 0.95;
             }
-
             draw() {
                 ctx.fillStyle = this.color;
                 ctx.globalAlpha = this.life;
@@ -332,33 +324,27 @@
                 ctx.globalAlpha = 1.0;
             }
         }
-
+        let lastVelocity = { x: 0, y: 0 };
         function startGame() {
             snake = [{ x: 10, y: 10 }];
             velocity = { x: 0, y: 0 };
+            lastVelocity = { x: 0, y: 0 };
             score = 0;
             particles = [];
             scoreElement.innerText = score;
             isGameRunning = true;
-
             startScreen.classList.add('hidden');
             gameOverScreen.classList.add('hidden');
-
             spawnFood();
-
             if (gameLoop) clearInterval(gameLoop);
-            gameLoop = setInterval(update, 1000 / 15); // 15 FPS
-
-            // Use requestAnimationFrame for smooth rendering separate from game logic
+            gameLoop = setInterval(update, 1000 / 15);
             render();
         }
-
         function spawnFood() {
             food = {
                 x: Math.floor(Math.random() * TILE_COUNT),
                 y: Math.floor(Math.random() * TILE_COUNT)
             };
-            // Ensure food doesn't spawn on snake
             for (let segment of snake) {
                 if (segment.x === food.x && segment.y === food.y) {
                     spawnFood();
@@ -366,79 +352,55 @@
                 }
             }
         }
-
         function createExplosion(x, y, color) {
             for (let i = 0; i < 10; i++) {
                 particles.push(new Particle(x * GRID_SIZE + GRID_SIZE / 2, y * GRID_SIZE + GRID_SIZE / 2, color));
             }
         }
-
         function update() {
             if (!isGameRunning) return;
-
-            // Move Snake
+            if (velocity.x === 0 && velocity.y === 0) return;
             const head = { x: snake[0].x + velocity.x, y: snake[0].y + velocity.y };
-
-            // Wall Collision
             if (head.x < 0 || head.x >= TILE_COUNT || head.y < 0 || head.y >= TILE_COUNT || checkSelfCollision(head)) {
                 gameOver();
                 return;
             }
-
-            // Only move if we have velocity
-            if (velocity.x !== 0 || velocity.y !== 0) {
-                snake.unshift(head);
-
-                // Food Collision
-                if (head.x === food.x && head.y === food.y) {
-                    score += 10;
-                    scoreElement.innerText = score;
-                    createExplosion(food.x, food.y, '#0ff');
-                    spawnFood();
-
-                    // Increase speed slightly
-                    clearInterval(gameLoop);
-                    gameLoop = setInterval(update, Math.max(1000 / (15 + Math.floor(score / 50)), 30));
-                } else {
-                    snake.pop();
-                }
+            snake.unshift(head);
+            if (head.x === food.x && head.y === food.y) {
+                score += 10;
+                scoreElement.innerText = score;
+                createExplosion(food.x, food.y, '#0ff');
+                spawnFood();
+                clearInterval(gameLoop);
+                gameLoop = setInterval(update, Math.max(1000 / (15 + Math.floor(score / 50)), 30));
+            } else {
+                snake.pop();
             }
+            lastVelocity = { ...velocity };
         }
-
         function checkSelfCollision(head) {
             for (let i = 0; i < snake.length; i++) {
                 if (head.x === snake[i].x && head.y === snake[i].y) return true;
             }
             return false;
         }
-
         function render() {
             if (!isGameRunning && particles.length === 0) return;
-
-            // Clear Canvas
-            ctx.fillStyle = 'rgba(5, 5, 16, 0.8)'; // Trail effect
+            ctx.fillStyle = 'rgba(5, 5, 16, 0.8)';
             ctx.fillRect(0, 0, canvas.width, canvas.height);
-
-            // Draw Food
             ctx.shadowBlur = 15;
             ctx.shadowColor = '#f0f';
             ctx.fillStyle = '#f0f';
             ctx.beginPath();
             ctx.arc(food.x * GRID_SIZE + GRID_SIZE / 2, food.y * GRID_SIZE + GRID_SIZE / 2, GRID_SIZE / 2 - 2, 0, Math.PI * 2);
             ctx.fill();
-
-            // Draw Snake
             snake.forEach((segment, index) => {
                 ctx.shadowBlur = 10;
                 ctx.shadowColor = '#0ff';
-                ctx.fillStyle = index === 0 ? '#fff' : '#0ff'; // White head
-
+                ctx.fillStyle = index === 0 ? '#fff' : '#0ff';
                 const x = segment.x * GRID_SIZE;
                 const y = segment.y * GRID_SIZE;
-
                 ctx.fillRect(x + 1, y + 1, GRID_SIZE - 2, GRID_SIZE - 2);
-
-                // Eyes for head
                 if (index === 0) {
                     ctx.fillStyle = '#000';
                     ctx.fillRect(x + 4, y + 4, 4, 4);
@@ -446,83 +408,62 @@
                 }
             });
             ctx.shadowBlur = 0;
-
-            // Draw Particles
             for (let i = particles.length - 1; i >= 0; i--) {
                 particles[i].update();
                 particles[i].draw();
                 if (particles[i].life <= 0) particles.splice(i, 1);
             }
-
             requestAnimationFrame(render);
         }
-
         function gameOver() {
             isGameRunning = false;
             clearInterval(gameLoop);
-
             if (score > highScore) {
                 highScore = score;
                 localStorage.setItem('snakeHighScore', highScore);
                 highScoreElement.innerText = highScore;
             }
-
             finalScoreElement.innerText = score;
             gameOverScreen.classList.remove('hidden');
         }
-
         function handleInput(key) {
-            // Prevent reversing direction
             switch (key) {
                 case 'ArrowUp':
-                    if (velocity.y === 1) return;
+                    if (lastVelocity.y === 1) return;
                     velocity = { x: 0, y: -1 };
                     break;
                 case 'ArrowDown':
-                    if (velocity.y === -1) return;
+                    if (lastVelocity.y === -1) return;
                     velocity = { x: 0, y: 1 };
                     break;
                 case 'ArrowLeft':
-                    if (velocity.x === 1) return;
+                    if (lastVelocity.x === 1) return;
                     velocity = { x: -1, y: 0 };
                     break;
                 case 'ArrowRight':
-                    if (velocity.x === -1) return;
+                    if (lastVelocity.x === -1) return;
                     velocity = { x: 1, y: 0 };
                     break;
             }
-
-            // Start game on first movement if waiting
-            if (!isGameRunning && startScreen.classList.contains('hidden')) {
-                // This logic might need adjustment depending on how we want to handle "pause" or "ready" states
-                // For now, startGame() handles the init.
-            }
         }
-
         document.addEventListener('keydown', (e) => {
             if (['ArrowUp', 'ArrowDown', 'ArrowLeft', 'ArrowRight'].includes(e.key)) {
-                e.preventDefault(); // Prevent scrolling
+                e.preventDefault();
                 handleInput(e.key);
             }
         });
-
-        // Touch support (simple swipes)
         let touchStartX = 0;
         let touchStartY = 0;
-
         canvas.addEventListener('touchstart', e => {
             touchStartX = e.changedTouches[0].screenX;
             touchStartY = e.changedTouches[0].screenY;
             e.preventDefault();
         }, { passive: false });
-
         canvas.addEventListener('touchend', e => {
             const touchEndX = e.changedTouches[0].screenX;
             const touchEndY = e.changedTouches[0].screenY;
-
             const dx = touchEndX - touchStartX;
             const dy = touchEndY - touchStartY;
-
             if (Math.abs(dx) > Math.abs(dy)) {
                 handleInput(dx > 0 ? 'ArrowRight' : 'ArrowLeft');
             } else {
@@ -530,10 +471,7 @@
             }
             e.preventDefault();
         }, { passive: false });
-
-        // Initial Render
         render();
-
     </script>
 </body>
 
