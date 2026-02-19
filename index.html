@@ -139,6 +139,42 @@
             grid-row: 2;
         }
 
+        .controls-top {
+            display: flex;
+            justify-content: center;
+            gap: 15px;
+            margin-bottom: 10px;
+        }
+
+        .pause-overlay {
+            position: absolute;
+            top: 0;
+            left: 0;
+            width: 100%;
+            height: 100%;
+            background: rgba(0, 0, 0, 0.6);
+            display: flex;
+            justify-content: center;
+            align-items: center;
+            border-radius: 13px;
+            z-index: 5;
+            backdrop-filter: blur(3px);
+            pointer-events: none;
+            opacity: 0;
+            transition: opacity 0.3s;
+        }
+
+        .pause-overlay.visible {
+            opacity: 1;
+            pointer-events: all;
+        }
+
+        .pause-text {
+            font-size: 2rem;
+            color: #fff;
+            text-shadow: 0 0 15px var(--primary-color);
+        }
+
         .overlay {
             position: absolute;
             top: 0;
@@ -253,41 +289,57 @@
                     <span class="label">BEST</span>
                     <span class="value" id="highScore">0</span>
                 </div>
-            </div>
-            <div style="position: relative;">
-                <canvas id="gameCanvas" width="400" height="400"></canvas>
-                <div id="startScreen" class="overlay">
-                    <h1>NEON SNAKE</h1>
-                    <button class="btn" onclick="startGame()">Start Game</button>
-                </div>
-                <div id="gameOverScreen" class="overlay hidden">
-                    <h1 style="font-size: 2.5rem; color: #ff3333; text-shadow: 0 0 20px red;">GAME OVER</h1>
-                    <div class="score-box" style="margin-bottom: 30px;">
-                        <span class="label">FINAL SCORE</span>
-                        <span class="value" id="finalScore">0</span>
-                    </div>
-                    <button class="btn" onclick="startGame()">Play Again</button>
-                </div>
-            </div>
-            <div class="signature">Created by Pratik</div>
-            <div class="mobile-controls">
-                <div class="d-pad">
-                    <div class="ctrl-btn up" onclick="handleInput('ArrowUp')">▲</div>
-                    <div class="ctrl-btn left" onclick="handleInput('ArrowLeft')">◀</div>
-                    <div class="ctrl-btn right" onclick="handleInput('ArrowRight')">▶</div>
-                    <div class="ctrl-btn down" onclick="handleInput('ArrowDown')">▼</div>
+                <div class="score-box">
+                    <span class="label">SPEED</span>
+                    <span class="value" id="currentSpeed">1x</span>
                 </div>
             </div>
         </div>
+        <div style="position: relative;">
+            <canvas id="gameCanvas" width="400" height="400"></canvas>
+            <div id="startScreen" class="overlay">
+                <h1>NEON SNAKE</h1>
+                <button class="btn" onclick="startGame()">Start Game</button>
+                <div style="margin-top: 20px; font-size: 0.7rem; color: rgba(255,255,255,0.5);">
+                    Press SPACE to Start/Pause
+                </div>
+            </div>
+            <div id="pauseOverlay" class="pause-overlay">
+                <div class="pause-text">PAUSED</div>
+            </div>
+            <div id="gameOverScreen" class="overlay hidden">
+                <h1 style="font-size: 2.5rem; color: #ff3333; text-shadow: 0 0 20px red;">GAME OVER</h1>
+                <div class="score-box" style="margin-bottom: 30px;">
+                    <span class="label">FINAL SCORE</span>
+                    <span class="value" id="finalScore">0</span>
+                </div>
+                <button class="btn" onclick="startGame()">Play Again</button>
+            </div>
+        </div>
+        <div class="signature">Created by Pratik</div>
+        <div class="controls-top">
+            <button class="btn" style="padding: 8px 15px; font-size: 0.8rem;" onclick="togglePause()">Pause (P)</button>
+        </div>
+        <div class="mobile-controls">
+            <div class="d-pad">
+                <div class="ctrl-btn up" onclick="handleInput('ArrowUp')">▲</div>
+                <div class="ctrl-btn left" onclick="handleInput('ArrowLeft')">◀</div>
+                <div class="ctrl-btn right" onclick="handleInput('ArrowRight')">▶</div>
+                <div class="ctrl-btn down" onclick="handleInput('ArrowDown')">▼</div>
+            </div>
+        </div>
+    </div>
     </div>
     <script>
         const canvas = document.getElementById('gameCanvas');
         const ctx = canvas.getContext('2d');
         const scoreElement = document.getElementById('score');
         const highScoreElement = document.getElementById('highScore');
+        const speedElement = document.getElementById('currentSpeed');
         const finalScoreElement = document.getElementById('finalScore');
         const startScreen = document.getElementById('startScreen');
         const gameOverScreen = document.getElementById('gameOverScreen');
+        const pauseOverlay = document.getElementById('pauseOverlay');
         const GRID_SIZE = 20;
         const TILE_COUNT = canvas.width / GRID_SIZE;
         let snake = [];
@@ -298,7 +350,28 @@
         let gameLoop;
         let particles = [];
         let isGameRunning = false;
+        let isPaused = false;
+        let baseFPS = 9;
+        let foodPulse = 0;
+        let flash = 0;
+        let audioCtx = null;
         highScoreElement.innerText = highScore;
+        function initAudio() {
+            if (!audioCtx) audioCtx = new (window.AudioContext || window.webkitAudioContext)();
+        }
+        function playSound(freq, type, duration) {
+            if (!audioCtx) return;
+            const osc = audioCtx.createOscillator();
+            const gain = audioCtx.createGain();
+            osc.type = type;
+            osc.frequency.setValueAtTime(freq, audioCtx.currentTime);
+            osc.connect(gain);
+            gain.connect(audioCtx.destination);
+            gain.gain.setValueAtTime(0.1, audioCtx.currentTime);
+            gain.gain.exponentialRampToValueAtTime(0.01, audioCtx.currentTime + duration);
+            osc.start();
+            osc.stop(audioCtx.currentTime + duration);
+        }
         class Particle {
             constructor(x, y, color) {
                 this.x = x;
@@ -326,19 +399,35 @@
         }
         let lastVelocity = { x: 0, y: 0 };
         function startGame() {
+            initAudio();
             snake = [{ x: 10, y: 10 }];
             velocity = { x: 0, y: 0 };
             lastVelocity = { x: 0, y: 0 };
             score = 0;
             particles = [];
+            isPaused = false;
+            pauseOverlay.classList.remove('visible');
             scoreElement.innerText = score;
+            speedElement.innerText = '1x';
             isGameRunning = true;
             startScreen.classList.add('hidden');
             gameOverScreen.classList.add('hidden');
             spawnFood();
             if (gameLoop) clearInterval(gameLoop);
-            gameLoop = setInterval(update, 1000 / 15);
+            gameLoop = setInterval(update, 1000 / baseFPS);
             render();
+        }
+        function togglePause() {
+            if (!isGameRunning) return;
+            isPaused = !isPaused;
+            if (isPaused) {
+                pauseOverlay.classList.add('visible');
+                clearInterval(gameLoop);
+            } else {
+                pauseOverlay.classList.remove('visible');
+                const currentFPS = baseFPS + Math.floor(score / 50);
+                gameLoop = setInterval(update, 1000 / currentFPS);
+            }
         }
         function spawnFood() {
             food = {
@@ -368,11 +457,15 @@
             snake.unshift(head);
             if (head.x === food.x && head.y === food.y) {
                 score += 10;
+                flash = 10;
+                playSound(880, 'square', 0.1);
                 scoreElement.innerText = score;
                 createExplosion(food.x, food.y, '#0ff');
                 spawnFood();
+                const currentFPS = baseFPS + Math.floor(score / 50);
+                speedElement.innerText = (currentFPS / baseFPS).toFixed(1) + 'x';
                 clearInterval(gameLoop);
-                gameLoop = setInterval(update, Math.max(1000 / (15 + Math.floor(score / 50)), 30));
+                gameLoop = setInterval(update, 1000 / currentFPS);
             } else {
                 snake.pop();
             }
@@ -386,27 +479,63 @@
         }
         function render() {
             if (!isGameRunning && particles.length === 0) return;
+
+            // Background
             ctx.fillStyle = 'rgba(5, 5, 16, 0.8)';
             ctx.fillRect(0, 0, canvas.width, canvas.height);
-            ctx.shadowBlur = 15;
+
+            // Pulse effect for food
+            foodPulse += 0.1;
+            const pulseScale = Math.sin(foodPulse) * 2 + 10;
+
+            // Render Food
+            ctx.shadowBlur = pulseScale;
             ctx.shadowColor = '#f0f';
             ctx.fillStyle = '#f0f';
             ctx.beginPath();
-            ctx.arc(food.x * GRID_SIZE + GRID_SIZE / 2, food.y * GRID_SIZE + GRID_SIZE / 2, GRID_SIZE / 2 - 2, 0, Math.PI * 2);
+            ctx.arc(food.x * GRID_SIZE + GRID_SIZE / 2, food.y * GRID_SIZE + GRID_SIZE / 2, GRID_SIZE / 2 - 3, 0, Math.PI * 2);
             ctx.fill();
+
+            // Render Snake
             snake.forEach((segment, index) => {
-                ctx.shadowBlur = 10;
+                const isHead = index === 0;
+                const sizeModifier = isHead ? 0 : (index / snake.length) * 4;
+                const size = GRID_SIZE - 2 - sizeModifier;
+                const offset = sizeModifier / 2;
+
+                ctx.shadowBlur = isHead ? 15 : 8;
                 ctx.shadowColor = '#0ff';
-                ctx.fillStyle = index === 0 ? '#fff' : '#0ff';
-                const x = segment.x * GRID_SIZE;
-                const y = segment.y * GRID_SIZE;
-                ctx.fillRect(x + 1, y + 1, GRID_SIZE - 2, GRID_SIZE - 2);
-                if (index === 0) {
+                ctx.fillStyle = isHead ? '#fff' : '#0ff';
+
+                const x = segment.x * GRID_SIZE + 1 + offset;
+                const y = segment.y * GRID_SIZE + 1 + offset;
+
+                // Draw rounded rect for smoother look
+                ctx.beginPath();
+                ctx.roundRect(x, y, size, size, 4);
+                ctx.fill();
+
+                if (isHead) {
                     ctx.fillStyle = '#000';
-                    ctx.fillRect(x + 4, y + 4, 4, 4);
-                    ctx.fillRect(x + 12, y + 4, 4, 4);
+                    const eyeSize = 3;
+                    // Eyes based on velocity
+                    let eyeX1 = x + 4, eyeY1 = y + 4, eyeX2 = x + 12, eyeY2 = y + 4;
+                    if (velocity.x === 1) { eyeX1 = x + 12; eyeX2 = x + 12; eyeY1 = y + 4; eyeY2 = y + 12; }
+                    else if (velocity.x === -1) { eyeX1 = x + 4; eyeX2 = x + 4; eyeY1 = y + 4; eyeY2 = y + 12; }
+                    else if (velocity.y === 1) { eyeX1 = x + 4; eyeX2 = x + 12; eyeY1 = y + 12; eyeY2 = y + 12; }
+
+                    ctx.fillRect(eyeX1, eyeY1, eyeSize, eyeSize);
+                    ctx.fillRect(eyeX2, eyeY2, eyeSize, eyeSize);
                 }
             });
+
+            // Flash effect
+            if (flash > 0) {
+                ctx.fillStyle = `rgba(0, 255, 255, ${flash / 20})`;
+                ctx.fillRect(0, 0, canvas.width, canvas.height);
+                flash--;
+            }
+
             ctx.shadowBlur = 0;
             for (let i = particles.length - 1; i >= 0; i--) {
                 particles[i].update();
@@ -416,6 +545,7 @@
             requestAnimationFrame(render);
         }
         function gameOver() {
+            playSound(110, 'sawtooth', 0.4);
             isGameRunning = false;
             clearInterval(gameLoop);
             if (score > highScore) {
@@ -450,6 +580,14 @@
             if (['ArrowUp', 'ArrowDown', 'ArrowLeft', 'ArrowRight'].includes(e.key)) {
                 e.preventDefault();
                 handleInput(e.key);
+            }
+            if (e.key.toLowerCase() === 'p' || e.code === 'Space') {
+                e.preventDefault();
+                if (!isGameRunning && (startScreen.classList.contains('hidden') === false || gameOverScreen.classList.contains('hidden') === false)) {
+                    startGame();
+                } else {
+                    togglePause();
+                }
             }
         });
         let touchStartX = 0;
