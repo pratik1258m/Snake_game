@@ -1,5 +1,17 @@
-# Neon Snake Game
-A modern, cyberpunk-themed Snake game built with HTML5 Canvas and Vanilla JavaScript.
+# 🐍 Neon Snake Game
+
+<div align="center">
+
+![HTML5](https://img.shields.io/badge/HTML5-E34F26?style=for-the-badge&logo=html5&logoColor=white)
+![CSS3](https://img.shields.io/badge/CSS3-1572B6?style=for-the-badge&logo=css3&logoColor=white)
+![JavaScript](https://img.shields.io/badge/JavaScript-F7DF1E?style=for-the-badge&logo=javascript&logoColor=black)
+[![Play Live](https://img.shields.io/badge/Play-Live%20Demo-success?style=for-the-badge&logo=google-play&logoColor=white)](https://pratik1258m.github.io/Snake_game/)
+
+**A modern, cyberpunk-themed arcade game built with HTML5 Canvas and Vanilla JavaScript. Play directly in your browser! 🚀**
+
+</div>
+
+---
 
 ## Features
 - **Neon Aesthetics**: Glowing visuals and dark mode design using CSS variables.
